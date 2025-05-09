@@ -1,3 +1,6 @@
+// Package safesession 实现安全登录会话。
+//
+// 这里的session表示保持登录的session。
 package safesession
 
 import (
@@ -215,7 +218,7 @@ func (c *Control) encodeSession(se *Session) string {
 	v := se.encode()
 	// 加密。
 	v = c.encrypt(v)
-	// 转义能安全地放置在URL查询的文本。
+	// 转义为能安全地放置在URL查询的文本。
 	return url.QueryEscape(v)
 }
 
