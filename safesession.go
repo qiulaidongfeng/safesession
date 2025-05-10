@@ -84,7 +84,7 @@ func NewControl(aeskey [32]byte, sessionMaxAge time.Duration, sameSite http.Same
 		panic(err)
 	}
 	c.aesgcm = gcm
-	if c.sameSite != 0 {
+	if sameSite != 0 {
 		c.sameSite = sameSite
 	} else {
 		c.sameSite = http.SameSiteLaxMode
