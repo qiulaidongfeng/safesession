@@ -63,10 +63,15 @@ Control 结构体管理所有Session。可以被多个goroutine使用，详情�
 
 ## 安全性分析
 对cookie属性的一系列设置确保了cookie的安全。
+
 随机生成ID和AES256-GCM加密使得Session难以被伪造，服务器保存Session ID使得即使出现伪造的Session，也会因为在服务器数据库没有而被发现。
+
 ip属地检查使得即使Session被窃取，也要使用同一属地ip才可能攻击成功。
+
 设备信息的检查使得使用窃取的Session更加困难，要上述user-agent提供的设备信息相同。
+
 由于ip属地和设备信息被加密存储在cookie，即使窃取了Session甚至黑入了服务器数据库，也无法得到这些信息来实现Session劫持。
+
 CSRF_TOKEN的存在使得即使利用浏览器的cookie自动发送机制实现跨站请求伪造攻击，也能被防范。
 
 ## TODO (代办事项)
