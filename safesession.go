@@ -22,6 +22,7 @@ import (
 var Test = false
 
 // Control 管理所有 [Session]。
+//
 // 零值无效，必须使用 [NewControl] 初始化。
 type Control struct {
 	// db 是用来保存 [Session] 的数据库。
@@ -38,6 +39,8 @@ type Control struct {
 }
 
 // DB 包含需要的数据库操作。
+//
+// 从多个goroutine调用里面的字段方法应该是安全的。
 type DB struct {
 	// Store 存储验证 [Session] 本身有效的必要信息到数据库，
 	// 返回false表示ID重复。
@@ -93,6 +96,7 @@ func NewControl(aeskey [32]byte, sessionMaxAge time.Duration, sameSite http.Same
 }
 
 // NewSession 创建一个 [Session] ，保证ID不重复。
+// 从多个goroutine调用是安全的。
 func (c *Control) NewSession(clientIP, userAgent, UserName string) Session {
 	s := c.newSession(clientIP, userAgent, UserName)
 	for {
@@ -143,10 +147,11 @@ func (s *Session) encode() string {
 }
 
 var LoginExpired = errors.New("登录已过期，请重新登录")
-var locationErr = errors.New("IP属地在两次登录时不在同一个地区，请重新登录")
+var RegionErr = errors.New("IP属地在两次登录时不在同一个地区，请重新登录")
 var mayStolen = errors.New("登录疑似存在风险，请重新登录")
 
 // Check 检查用户的 [Session] 是否有效。
+// 从多个goroutine调用是安全的。
 func (c *Control) Check(clientIP, userAgent string, s *Session) (bool, error) {
 	// 有些浏览器会发送刚过期的cookie,
 	// 所以检查登录会话本身是否已经过期。
@@ -160,7 +165,7 @@ func (c *Control) Check(clientIP, userAgent string, s *Session) (bool, error) {
 		userIp := c.getIPInfo(clientIP)
 		if userIp != s.Ip && userIp.Country != "" {
 			c.db.Delete(s.ID)
-			return false, locationErr
+			return false, RegionErr
 		}
 	}
 	// 检查设备信息，
@@ -184,11 +189,12 @@ func (c *Control) Check(clientIP, userAgent string, s *Session) (bool, error) {
 // IPInfo 是ip信息。
 type IPInfo struct {
 	// Country 是ip属地。
-	// 正确命名应该是Location，为了向后兼容，所以不修改。
+	// 正确命名应该是Region，为了向后兼容，所以不修改。
 	Country string `json:"country"`
 }
 
 // CheckLogined 检查是否已经登录。
+// 从多个goroutine调用是安全的。
 func (c *Control) CheckLogined(clientIP, userAgent string, cookie *http.Cookie) (bool, error, Session) {
 	ok, se := c.decodeSession(cookie.Value)
 	if ok && c.db.Exist(se.ID) {
@@ -200,6 +206,7 @@ func (c *Control) CheckLogined(clientIP, userAgent string, cookie *http.Cookie) 
 
 // SetSession 设置已创建的登录会话。
 // 只能在https时使用。
+// 只要每次调用的w不同，从多个goroutine调用是安全的。
 func (c *Control) SetSession(se *Session, w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session",
