@@ -1,4 +1,6 @@
-// Package codec 实现编解码
+// Package codec 实现编解码。
+//
+// 只支持字符串和time.Time类型。
 package codec
 
 import (
@@ -11,11 +13,11 @@ import (
 )
 
 /*
-	编码格式为
+编码格式为
 
-field1 value1 field2 value2 ......
+value1 value2 ......
 
-time.Time 编码为它的UnixMicro()结果
+time.Time 编码为它的GobEncode()结果
 
 考虑到被编码值可能包含空格，所以编码后的分隔从空格改为byte(0)
 */
@@ -23,6 +25,7 @@ time.Time 编码为它的UnixMicro()结果
 const sep = string(sepb)
 const sepb = byte(0)
 
+// Encode 将值编码为字符串。
 func Encode(v any) string {
 	r := reflect.ValueOf(v)
 	if r.Kind() == reflect.Ptr {
@@ -38,14 +41,10 @@ func encodeBuf(r reflect.Value, buf *strings.Builder) {
 		f := r.Field(i)
 		switch f.Kind() {
 		case reflect.String:
-			buf.WriteString(r.Type().Field(i).Name)
-			buf.WriteString(sep)
 			buf.WriteString(f.String())
 			buf.WriteString(sep)
 		case reflect.Struct:
 			if r.Type().Field(i).Type == timetime {
-				buf.WriteString(r.Type().Field(i).Name)
-				buf.WriteString(sep)
 				b, err := f.Interface().(time.Time).GobEncode()
 				if err != nil {
 					panic(err)
@@ -56,11 +55,13 @@ func encodeBuf(r reflect.Value, buf *strings.Builder) {
 				encodeBuf(f, buf)
 			}
 		default:
-			panic("未知的类型")
+			panic(fmt.Errorf("未知的类型 %s", r.Type()))
 		}
 	}
 }
 
+// Decode 将字符串解码为指定类型的值。
+// 如果解码失败，返回false。
 func Decode[T any](v *T, code string) (ok bool) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -110,14 +111,8 @@ func decodeField(r reflect.Value, code string) string {
 	return code
 }
 
+// getValue 获取一个值，并返回剩下未解码的值。
 func getValue(code string) (string, string) {
-	// 跳过字段名
-	for i := range code {
-		if code[i] == sepb {
-			code = code[i+1:]
-			break
-		}
-	}
 	// 获取值
 	var v string
 	for i := range code {
