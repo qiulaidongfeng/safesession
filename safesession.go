@@ -155,7 +155,7 @@ var mayStolen = errors.New("登录疑似存在风险，请重新登录")
 func (c *Control) Check(clientIP, userAgent string, s *Session) (bool, error) {
 	// 有些浏览器会发送刚过期的cookie,
 	// 所以检查登录会话本身是否已经过期。
-	if s.CreateTime.Sub(time.Now()) >= c.sessionMaxAge {
+	if time.Since(s.CreateTime) >= c.sessionMaxAge {
 		c.db.Delete(s.ID)
 		return false, LoginExpired
 	}

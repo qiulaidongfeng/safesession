@@ -8,11 +8,10 @@ import (
 	"time"
 )
 
-func TestAll(t *testing.T) {
+var delete_num = 0
+
+var c = func() *Control {
 	m := make(map[string]any)
-	testErr := errors.New("test")
-	user_agent := "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Mobile Safari/537.36"
-	delete_num := 0
 	db := DB{
 		Store: func(ID string, CreateTime time.Time) bool {
 			if _, ok := m[ID]; ok {
@@ -43,6 +42,13 @@ func TestAll(t *testing.T) {
 		}
 		return IPInfo{Country: c}
 	}, db)
+	return c
+}()
+
+var testErr = errors.New("test")
+var user_agent = "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Mobile Safari/537.36"
+
+func TestAll(t *testing.T) {
 	s := c.NewSession("192.168.0.1", user_agent, "ok")
 	if s.Ip.Country != "CN" {
 		t.Fatalf("got %s, want CN", s.Ip.Country)
@@ -91,8 +97,7 @@ func TestAll(t *testing.T) {
 	if s != s2 && !s.CreateTime.Equal(s2.CreateTime) {
 		t.Fatalf("%s\n%s\n", s.encode(), s2.encode())
 	}
-	// TODO: 使用synctest测试Session本身过期
-	if _, err := c.Check("192.168.0.2", user_agent, &s2); err != locationErr {
+	if _, err := c.Check("192.168.0.2", user_agent, &s2); err != RegionErr {
 		t.Fatal(err)
 	}
 	if _, err := c.Check("192.168.0.1", "", &s2); err != mayStolen {
