@@ -5,11 +5,15 @@ A safe login session library. (一个安全登录会话库。)
 
 ## 背景
 因为http协议是无状态的，所以在网站或APP中需要专门设计如何保持登录。
+
 cookie是浏览器提供的，可以将少量数据保存到客户设备，在访问网站时自动发送给服务器。
 
 常见的保持登录方法根据此包括：
+
 session和jwt。
+
 session的常见做法将cookie值设为一个session id,服务器根据这个值记录是否登录
+
 jwt以json的格式将登录状态信息保存到cookie。
 
 我在做网站的时候修改session的常见做法实现了一个更安全的session，我基于此实现了这个开源的安全登录会话库。
@@ -64,7 +68,7 @@ Control 结构体管理所有Session。可以被多个goroutine使用，详情�
 ## 安全性分析
 对cookie属性的一系列设置确保了cookie的安全。
 
-随机生成ID和AES256-GCM加密使得Session难以被伪造，服务器保存Session ID使得即使出现伪造的Session，也会因为在服务器数据库没有而被发现。
+随机生成ID和AES256-GCM加密使得Session难以被伪造，**目前没有公开的有效攻击方法能够破解正确实现的AES-256-GCM**，服务器保存Session ID使得即使出现伪造的Session，也会因为在服务器数据库没有而被发现。
 
 ip属地检查使得即使Session被窃取，也要使用同一属地ip才可能攻击成功。
 
