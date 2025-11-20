@@ -239,6 +239,9 @@ func (c *Control) decodeSession(v string) (bool, Session) {
 	// 解密。
 	s := c.decrypt(v)
 	var se Session
+	if s == "" {
+		return false, se
+	}
 	// 解码。
 	ok := se.decode(s)
 	return ok, se
@@ -254,7 +257,7 @@ func (c *Control) encrypt(s string) string {
 func (c *Control) decrypt(s string) string {
 	b, err := c.aesgcm.Open(nil, nil, unsafe.Slice(unsafe.StringData(s), len(s)), nil)
 	if err != nil {
-		panic(err)
+		return ""
 	}
 	return unsafe.String(unsafe.SliceData(b), len(b))
 }
