@@ -1,4 +1,4 @@
-//go:build goexperiment.synctest
+//go:build go1.25
 
 package safesession
 
@@ -9,7 +9,7 @@ import (
 )
 
 func TestExpire(t *testing.T) {
-	synctest.Run(func() {
+	synctest.Test(t, func(t *testing.T) {
 		s := c.NewSession("192.168.0.1", user_agent, "ok")
 		time.Sleep(12*time.Hour - time.Second)
 		synctest.Wait()
@@ -20,5 +20,7 @@ func TestExpire(t *testing.T) {
 		if _, err := c.Check("192.168.0.1", user_agent, &s); err != LoginExpired {
 			t.Fatal(err)
 		}
+		//支持-count
+		delete_num = 0
 	})
 }

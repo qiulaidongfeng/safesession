@@ -4,15 +4,12 @@
 package safesession
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/url"
 	"time"
-	"unsafe"
 
 	"github.com/mileusna/useragent"
 	"github.com/qiulaidongfeng/safesession/codec"
@@ -32,8 +29,8 @@ type Control struct {
 	// sameSite 设置 [Session] 保存到cookie的sameSite属性，
 	// 默认为Lex，确保从浏览器搜索结果进入网站时，能够自动登录。
 	sameSite http.SameSite
-	// aesgcm 用于加密 [Session] 。
-	aesgcm cipher.AEAD
+	// encrypt,decrypt 加解密 [Session]
+	encrypt, decrypt func(string) string
 	// getIPInfo 获取IP信息。
 	getIPInfo func(clientIp string) IPInfo
 }
@@ -62,7 +59,7 @@ type Session struct {
 	// Ip 是创建登录会话时的ip信息。
 	Ip IPInfo `json:"-" gorm:"-:all"`
 	// CSRF_TOKEN 用来防范跨站请求伪造攻击。
-	CSRF_TOKEN string
+	CSRF_TOKEN string `json:"-" gorm:"-:all"`
 	// 下列字段是创建登录会话时的客户端设备信息，
 	// 和ip信息以及CSRF_TOKEN一起保存在客户浏览器，不在服务器保存。
 	Os, OsVersion string `json:"-" gorm:"-:all"`
@@ -73,17 +70,9 @@ type Session struct {
 
 // NewControl 创建一个 [Control] 。
 // 数据库应自行实现清除过期的 [Session] ·。
-func NewControl(aeskey [32]byte, sessionMaxAge time.Duration, sameSite http.SameSite, getIPInfo func(clientIp string) IPInfo, Db DB) *Control {
+func NewControl(encrypt, decrypt func(string) string, sessionMaxAge time.Duration, sameSite http.SameSite, getIPInfo func(clientIp string) IPInfo, Db DB) *Control {
 	var c = new(Control)
-	b, err := aes.NewCipher(aeskey[:])
-	if err != nil {
-		panic(err)
-	}
-	gcm, err := cipher.NewGCMWithRandomNonce(b)
-	if err != nil {
-		panic(err)
-	}
-	c.aesgcm = gcm
+	c.encrypt, c.decrypt = encrypt, decrypt
 	if sameSite != 0 {
 		c.sameSite = sameSite
 	} else {
@@ -245,19 +234,4 @@ func (c *Control) decodeSession(v string) (bool, Session) {
 	// 解码。
 	ok := se.decode(s)
 	return ok, se
-}
-
-// encrypt 使用aes256-gcm进行加密。
-func (c *Control) encrypt(s string) string {
-	b := c.aesgcm.Seal(nil, nil, unsafe.Slice(unsafe.StringData(s), len(s)), nil)
-	return unsafe.String(unsafe.SliceData(b), len(b))
-}
-
-// decrypt 使用aes256-gcm进行解密。
-func (c *Control) decrypt(s string) string {
-	b, err := c.aesgcm.Open(nil, nil, unsafe.Slice(unsafe.StringData(s), len(s)), nil)
-	if err != nil {
-		return ""
-	}
-	return unsafe.String(unsafe.SliceData(b), len(b))
 }

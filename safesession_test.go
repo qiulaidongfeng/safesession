@@ -35,7 +35,7 @@ var c = func() *Control {
 			return testErr
 		},
 	}
-	c := NewControl([32]byte{}, 12*time.Hour, 0, func(clientIp string) IPInfo {
+	c := NewControl(func(s string) string { return s }, func(s string) string { return s }, 12*time.Hour, 0, func(clientIp string) IPInfo {
 		c := "CN"
 		if clientIp == "192.168.0.2" {
 			c = "US"
@@ -112,6 +112,7 @@ func TestAll(t *testing.T) {
 		t.Fatal(err)
 	}
 	if delete_num != 3 {
+		t.Log(delete_num)
 		t.Fatalf("Delete should be called three times")
 	}
 }
