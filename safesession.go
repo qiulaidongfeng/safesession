@@ -184,6 +184,7 @@ type IPInfo struct {
 
 // CheckLogined 检查是否已经登录。
 // 从多个goroutine调用是安全的。
+// 如果err!=nil,调用者应该删除cookie（响应MaxAge<0）。
 func (c *Control) CheckLogined(clientIP, userAgent string, cookie *http.Cookie) (bool, error, Session) {
 	ok, se := c.decodeSession(cookie.Value)
 	if ok && c.db.Exist(se.ID) {
