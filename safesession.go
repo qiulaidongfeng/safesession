@@ -54,18 +54,51 @@ type DB struct {
 type Session struct {
 	// ID 对每个登录会话是唯一的。
 	ID string `gorm:"primaryKey;type:char(64)"`
-	// CreateTime 是创建登录会话的时间。
+	// CreateTime 是上一次登录的时间。
+	// 应该命名为LastLoginTime，为了不在生产环境修改数据库表，
+	// 所以不改名。
 	CreateTime time.Time
-	// Ip 是创建登录会话时的ip信息。
+	// Ip 是上一次登录的ip信息。
 	Ip IPInfo `json:"-" gorm:"-:all"`
+	// Gps 是上一次登录的gps信息。
+	Gps GpsInfo `json:"-" gorm:"-:all"`
 	// CSRF_TOKEN 用来防范跨站请求伪造攻击。
+	// 调用者设置它。
 	CSRF_TOKEN string `json:"-" gorm:"-:all"`
 	// 下列字段是创建登录会话时的客户端设备信息，
 	// 和ip信息以及CSRF_TOKEN一起保存在客户浏览器，不在服务器保存。
 	Os, OsVersion string `json:"-" gorm:"-:all"`
-	Name          string `json:"-" gorm:"-:all"`
-	Device        string `json:"-" gorm:"-:all"`
-	Broswer       string `json:"-" gorm:"-:all"`
+	// Name 是用来登录的用户的唯一身份表示。
+	Name string `json:"-" gorm:"-:all"`
+	// Device 是浏览器指纹或设备指纹。
+	Device string `json:"-" gorm:"-:all"`
+	// Broswer 是浏览器名
+	// Browser是正确拼写，为了不在生产环境修改数据库表，
+	// 所以不改名。
+	// 在非浏览器环境运行时，设置为user-agent提取到的应用名。
+	Broswer string `json:"-" gorm:"-:all"`
+	Screen  Screen `json:"-" gorm:"-:all"`
+	// PNum 是逻辑处理器数量，
+	// 通常使用navigator.hardwareConcurrency获取。
+	PNum int `json:"-" gorm:"-:all"`
+}
+
+// IPInfo 是ip信息。
+type IPInfo struct {
+	Country, Region, City string
+	ISP                   string
+	Longitude, Latitude   float64
+	AS                    int
+}
+
+// GpsInfo 是gps信息。
+type GpsInfo struct {
+	Longitude, Latitude float64
+}
+
+// Screen 是屏幕信息。
+type Screen struct {
+	Width, Height int
 }
 
 // NewControl 创建一个 [Control] 。
@@ -173,13 +206,6 @@ func (c *Control) Check(clientIP, userAgent string, s *Session) (bool, error) {
 		return false, err
 	}
 	return true, nil
-}
-
-// IPInfo 是ip信息。
-type IPInfo struct {
-	// Country 是ip属地。
-	// 正确命名应该是Region，为了向后兼容，所以不修改。
-	Country string `json:"country"`
 }
 
 // CheckLogined 检查是否已经登录。
