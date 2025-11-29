@@ -5,12 +5,13 @@ package safesession
 
 import (
 	"crypto/rand"
+	"encoding/base32"
 	"encoding/base64"
 	"errors"
 	"math"
 	"net/http"
-	"net/url"
 	"time"
+	"unsafe"
 
 	"github.com/mileusna/useragent"
 	"github.com/qiulaidongfeng/safesession/codec"
@@ -251,16 +252,17 @@ func (c *Control) encodeSession(se *Session) string {
 	// 加密。
 	v = c.encrypt(v)
 	// 转义为能安全地放置在URL查询的文本。
-	return url.QueryEscape(v)
+	return base32.StdEncoding.EncodeToString(unsafe.Slice(unsafe.StringData(v), len(v)))
 }
 
 // decodeSession 从cookie值中解码 [Session] 。
 func (c *Control) decodeSession(v string) (bool, Session) {
 	// 恢复成密文。
-	v, err := url.QueryUnescape(v)
+	b, err := base32.StdEncoding.DecodeString(v)
 	if err != nil {
 		return false, Session{}
 	}
+	v = unsafe.String(unsafe.SliceData(b), len(b))
 	// 解密。
 	s := c.decrypt(v)
 	var se Session
