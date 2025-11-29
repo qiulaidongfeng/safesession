@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"math"
 	"net/http"
 	"net/url"
 	"time"
@@ -121,6 +122,14 @@ func NewControl(encrypt, decrypt func(string) string, sessionMaxAge time.Duratio
 // 从多个goroutine调用是安全的。
 func (c *Control) NewSession(clientIP, userAgent, UserName string) Session {
 	s := c.newSession(clientIP, userAgent, UserName)
+	s.Gps.Latitude = math.MaxFloat64
+	s.Gps.Longitude = math.MaxFloat64
+	s.Ip.Latitude = math.MaxFloat64
+	s.Ip.Longitude = math.MaxFloat64
+	s.Ip.AS = -1
+	s.PNum = -1
+	s.Screen.Width = -1
+	s.Screen.Height = -1
 	for {
 		// 在ID不重复时返回。
 		if c.db.Store(s.ID, s.CreateTime) {
