@@ -178,6 +178,15 @@ func (s *Session) encode() string {
 	return codec.Encode(s)
 }
 
+// SetPostInfo 设置应该由POST请求提供的验证信息
+// 注意int类型的字段，未能获取时应该设置为-1，float64则为 [math.MaxFloat64].
+func (s *Session) SetPostInfo(g GpsInfo, scr Screen, PNum int, Device string) {
+	s.PNum = PNum
+	s.Device = Device
+	s.Screen = scr
+	s.Gps = g
+}
+
 var LoginExpired = errors.New("登录已过期，请重新登录")
 var RegionErr = errors.New("IP属地在两次登录时不在同一个地区，请重新登录")
 var mayStolen = errors.New("登录疑似存在风险，请重新登录")
