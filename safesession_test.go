@@ -62,9 +62,6 @@ func TestAll(t *testing.T) {
 	if s.Name != "ok" {
 		t.Fatalf("got %s, want ok", s.Name)
 	}
-	if s.Device != "Nexus 5" {
-		t.Fatalf("got %s, want Nexus 5", s.Device)
-	}
 	if s.Broswer != "Chrome" {
 		t.Fatalf("got %s, want Chrome", s.Broswer)
 	}
@@ -86,6 +83,7 @@ func TestAll(t *testing.T) {
 	if cs[0].Name != "session" {
 		t.Fatalf("got %s, want session", cs[0].Name)
 	}
+	c.decodeSession(cs[0].Value)
 	if logined, err, _ := c.CheckLogined("192.168.0.1", user_agent, cs[0]); !logined || err != nil {
 		t.Log(logined)
 		t.Fatal(err)

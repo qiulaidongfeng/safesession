@@ -88,7 +88,7 @@ type Session struct {
 	Screen  Screen `json:"-" gorm:"-:all"`
 	// PNum 是逻辑处理器数量，
 	// 通常使用navigator.hardwareConcurrency获取。
-	PNum int `json:"-" gorm:"-:all"`
+	PNum int64 `json:"-" gorm:"-:all"`
 }
 
 // IPInfo 是ip信息。
@@ -96,7 +96,7 @@ type IPInfo struct {
 	Country, Region, City string
 	ISP                   string
 	Longitude, Latitude   float64
-	AS                    int
+	AS                    int64
 }
 
 // GpsInfo 是gps信息。
@@ -106,7 +106,7 @@ type GpsInfo struct {
 
 // Screen 是屏幕信息。
 type Screen struct {
-	Width, Height int
+	Width, Height int64
 }
 
 // NewControl 创建一个 [Control] 。
@@ -185,7 +185,7 @@ func (s *Session) encode() string {
 type PostInfo struct {
 	Gps    GpsInfo
 	Screen Screen
-	PNum   int
+	PNum   int64
 	Device string
 }
 
@@ -205,7 +205,7 @@ var MayStolen = errors.New("登录疑似存在风险，请重新登录")
 // Check 检查用户的 [Session] 是否未被盗且未登录失效。
 // 从多个goroutine调用是安全的。
 // 假设已验证Session ID未过期。
-func (c *Control) Check(clientIP, userAgent string, s *Session, ps ...PostInfo) (bool, error) {
+func (c *Control) Check(clientIP, userAgent string, s *Session, ps ...PostInfo) (pass bool, err error) {
 	// 有些浏览器会发送刚过期的cookie,
 	// 所以检查登录会话本身是否已经过期。
 	if time.Since(s.CreateTime) >= c.sessionMaxAge {
@@ -254,7 +254,7 @@ func (c *Control) Check(clientIP, userAgent string, s *Session, ps ...PostInfo) 
 			if s.Ip.AS != -1 && s.Ip.AS != userIp.AS {
 				fail++
 			}
-			if !s.checkIp(userIp) {
+			if !s.checkIp(userIp, &err) {
 				fail++
 			}
 		}
@@ -273,12 +273,15 @@ func (c *Control) Check(clientIP, userAgent string, s *Session, ps ...PostInfo) 
 		fail++
 	}
 
-	if !device_ok && fail > 1 {
+	if !device_ok && fail >= 1 {
 		if c.CheckCallBack != nil && c.CheckCallBack(s, clientIP, userAgent, p) {
 			return true, nil
 		}
 		c.db.Delete(s.ID)
-		return false, MayStolen
+		if err == nil {
+			err = MayStolen
+		}
+		return false, err
 	}
 
 	// 检查登录会话表示的用户登录状态。
@@ -292,17 +295,16 @@ func (c *Control) Check(clientIP, userAgent string, s *Session, ps ...PostInfo) 
 	return true, nil
 }
 
-func (s *Session) checkIp(newInfo IPInfo) bool {
-	if s.Ip.Country != "" && s.Ip.Country != newInfo.Country {
-		return false
-	}
+func (s *Session) checkIp(newInfo IPInfo, e *error) bool {
 	if s.Ip.AS != newInfo.AS {
 		return false
 	}
 	if s.Ip.Country != "" && s.Ip.Country != newInfo.Country {
+		*e = RegionErr
 		return false
 	}
 	if s.Ip.Region != "" && s.Ip.Region != newInfo.Region {
+		*e = RegionErr
 		return false
 	}
 	//TODO:handle 经纬度

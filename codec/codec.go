@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -54,8 +55,14 @@ func encodeBuf(r reflect.Value, buf *strings.Builder) {
 			} else {
 				encodeBuf(f, buf)
 			}
+		case reflect.Float64:
+			fmt.Fprintf(buf, "%g", f.Float())
+			buf.WriteString(sep)
+		case reflect.Int64:
+			fmt.Fprintf(buf, "%d", f.Int())
+			buf.WriteString(sep)
 		default:
-			panic(fmt.Errorf("未知的类型 %s", r.Type()))
+			panic(fmt.Errorf("未知的类型 %s", f.Type()))
 		}
 	}
 }
@@ -82,14 +89,13 @@ func decodeStruct(r reflect.Value, code string) string {
 }
 
 func decodeField(r reflect.Value, code string) string {
+	var v string
 	switch r.Kind() {
 	case reflect.String:
-		var v string
 		code, v = getValue(code)
 		r.SetString(v)
 	case reflect.Struct:
 		if r.Type() == timetime {
-			var v string
 			code, v = getValue(code)
 			t := time.Time{}
 			vb, err := base64.StdEncoding.DecodeString(v)
@@ -105,6 +111,20 @@ func decodeField(r reflect.Value, code string) string {
 			return code
 		}
 		code = decodeStruct(r, code)
+	case reflect.Float64:
+		code, v = getValue(code)
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			panic(err)
+		}
+		r.SetFloat(f)
+	case reflect.Int64:
+		code, v = getValue(code)
+		vi, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		r.SetInt(vi)
 	default:
 		panic(fmt.Errorf("未知的类型 %s", r.Type()))
 	}
