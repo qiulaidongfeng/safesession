@@ -35,8 +35,8 @@ type Control struct {
 	encrypt, decrypt func(string) string
 	// getIPInfo 获取IP信息。
 	getIPInfo func(clientIp string) IPInfo
-	// checkIPInfo 检查IP信息是否相差过大。
-	checkIPInfo func(old, new IPInfo) bool
+	// CheckIPInfo 允许调用者覆盖默认检查IP信息是否相差过大逻辑。
+	CheckIPInfo func(old, new IPInfo) bool
 	// SessionCookieName 允许调用者设置写入响应的Cookie name
 	SessionCookieName func(s *Session) string
 }
@@ -110,7 +110,7 @@ type Screen struct {
 // NewControl 创建一个 [Control] 。
 // 数据库应自行实现清除过期的 [Session] ·。
 func NewControl(encrypt, decrypt func(string) string, sessionMaxAge time.Duration, sameSite http.SameSite,
-	getIPInfo func(clientIp string) IPInfo, checkIPInfo func(old, new IPInfo) bool,
+	getIPInfo func(clientIp string) IPInfo,
 	Db DB) *Control {
 	var c = new(Control)
 	c.encrypt, c.decrypt = encrypt, decrypt
@@ -121,7 +121,6 @@ func NewControl(encrypt, decrypt func(string) string, sessionMaxAge time.Duratio
 	}
 	c.sessionMaxAge = sessionMaxAge
 	c.getIPInfo = getIPInfo
-	c.checkIPInfo = c.checkIPInfo
 	c.db = Db
 	return c
 }
@@ -228,8 +227,8 @@ func (c *Control) Check(clientIP, userAgent string, p PostInfo, s *Session) (boo
 	// 就不要检查ip信息在创建登录会话和现在使用登录会话时是否一致。
 	if !Test {
 		userIp := c.getIPInfo(clientIP)
-		if c.checkIPInfo != nil {
-			if !c.checkIPInfo(s.Ip, userIp) {
+		if c.CheckIPInfo != nil {
+			if !c.CheckIPInfo(s.Ip, userIp) {
 				fail++
 			}
 		} else {
