@@ -224,7 +224,7 @@ func (c *Control) Check(clientIP, userAgent string, p PostInfo, s *Session) (boo
 
 	// 如果是测试
 	// 就不要检查ip信息在创建登录会话和现在使用登录会话时是否一致。
-	if !Test && s.Ip.Country != "" {
+	if !Test {
 		userIp := c.getIPInfo(clientIP)
 		if c.checkIPInfo != nil {
 			if !c.checkIPInfo(s.Ip, userIp) {
@@ -241,6 +241,19 @@ func (c *Control) Check(clientIP, userAgent string, p PostInfo, s *Session) (boo
 				fail++
 			}
 		}
+	}
+
+	if s.PNum != -1 && s.PNum != p.PNum {
+		fail++
+	}
+	if s.OsVersion != "" && s.OsVersion != u.OSVersion {
+		fail++
+	}
+	if s.Screen.Height != -1 && s.Screen.Height != p.Screen.Height {
+		fail++
+	}
+	if s.Screen.Width != -1 && s.Screen.Width != p.Screen.Width {
+		fail++
 	}
 
 	if !device_ok && fail > 1 {
