@@ -200,7 +200,7 @@ func (s *Session) SetPostInfo(i PostInfo) {
 
 var LoginExpired = errors.New("登录已过期，请重新登录")
 var RegionErr = errors.New("IP属地在两次登录时不在同一个地区，请重新登录")
-var mayStolen = errors.New("登录疑似存在风险，请重新登录")
+var MayStolen = errors.New("登录疑似存在风险，请重新登录")
 
 // Check 检查用户的 [Session] 是否有效。
 // 从多个goroutine调用是安全的。
@@ -218,7 +218,7 @@ func (c *Control) Check(clientIP, userAgent string, p PostInfo, s *Session) (boo
 			return true, nil
 		}
 		c.db.Delete(s.ID)
-		return false, mayStolen
+		return false, MayStolen
 	}
 
 	// 高特异性特征检查
@@ -267,7 +267,7 @@ func (c *Control) Check(clientIP, userAgent string, p PostInfo, s *Session) (boo
 			return true, nil
 		}
 		c.db.Delete(s.ID)
-		return false, mayStolen
+		return false, MayStolen
 	}
 
 	// 检查登录会话表示的用户登录状态。

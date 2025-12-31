@@ -100,7 +100,7 @@ func TestAll(t *testing.T) {
 	if _, err := c.Check("192.168.0.2", user_agent, &s2); err != RegionErr {
 		t.Fatal(err)
 	}
-	if _, err := c.Check("192.168.0.1", "", &s2); err != mayStolen {
+	if _, err := c.Check("192.168.0.1", "", &s2); err != MayStolen {
 		t.Fatal(err)
 	}
 	s2.Name = "testErr"
