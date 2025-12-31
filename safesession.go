@@ -39,6 +39,8 @@ type Control struct {
 	CheckIPInfo func(old, new IPInfo) bool
 	// SessionCookieName 允许调用者设置写入响应的Cookie name
 	SessionCookieName func(s *Session) string
+	// CheckCallBack 在被盗检查不通过时允许调用者进行二次验证
+	CheckCallBack func(s *Session, clientIP, userAgent string, p PostInfo) bool
 }
 
 // DB 包含需要的数据库操作。
@@ -212,6 +214,9 @@ func (c *Control) Check(clientIP, userAgent string, p PostInfo, s *Session) (boo
 	// 高灵敏度特征检查
 	u := useragent.Parse(userAgent)
 	if u.OS != s.Os || u.Name != s.Broswer {
+		if c.CheckCallBack != nil && c.CheckCallBack(s, clientIP, userAgent, p) {
+			return true, nil
+		}
 		c.db.Delete(s.ID)
 		return false, mayStolen
 	}
@@ -258,6 +263,9 @@ func (c *Control) Check(clientIP, userAgent string, p PostInfo, s *Session) (boo
 	}
 
 	if !device_ok && fail > 1 {
+		if c.CheckCallBack != nil && c.CheckCallBack(s, clientIP, userAgent, p) {
+			return true, nil
+		}
 		c.db.Delete(s.ID)
 		return false, mayStolen
 	}
