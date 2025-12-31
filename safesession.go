@@ -37,6 +37,8 @@ type Control struct {
 	getIPInfo func(clientIp string) IPInfo
 	// checkIPInfo 检查IP信息是否相差过大。
 	checkIPInfo func(old, new IPInfo) bool
+	// SessionCookieName 允许调用者设置写入响应的Cookie name
+	SessionCookieName func(s *Session) string
 }
 
 // DB 包含需要的数据库操作。
@@ -305,8 +307,12 @@ func (c *Control) CheckLogined(clientIP, userAgent string, cookie *http.Cookie) 
 // 只能在https时使用。
 // 只要每次调用的w不同，从多个goroutine调用是安全的。
 func (c *Control) SetSession(se *Session, w http.ResponseWriter) {
+	name := "session"
+	if c.SessionCookieName != nil {
+		name = c.SessionCookieName(se)
+	}
 	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
+		Name:     name,
 		Value:    c.encodeSession(se),
 		Path:     "/",
 		SameSite: c.sameSite,
