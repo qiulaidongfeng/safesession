@@ -202,14 +202,25 @@ var LoginExpired = errors.New("登录已过期，请重新登录")
 var RegionErr = errors.New("IP属地在两次登录时不在同一个地区，请重新登录")
 var MayStolen = errors.New("登录疑似存在风险，请重新登录")
 
-// Check 检查用户的 [Session] 是否有效。
+// Check 检查用户的 [Session] 是否未被盗且未登录失效。
 // 从多个goroutine调用是安全的。
-func (c *Control) Check(clientIP, userAgent string, p PostInfo, s *Session) (bool, error) {
+// 假设已验证Session ID未过期。
+func (c *Control) Check(clientIP, userAgent string, s *Session, ps ...PostInfo) (bool, error) {
 	// 有些浏览器会发送刚过期的cookie,
 	// 所以检查登录会话本身是否已经过期。
 	if time.Since(s.CreateTime) >= c.sessionMaxAge {
 		c.db.Delete(s.ID)
 		return false, LoginExpired
+	}
+	var p PostInfo
+	if len(ps) != 0 {
+		p = ps[0]
+	} else {
+		p.PNum = -1
+		p.Gps.Latitude = math.MaxFloat64
+		p.Gps.Longitude = math.MaxFloat64
+		p.Screen.Height = -1
+		p.Screen.Width = -1
 	}
 	// 高灵敏度特征检查
 	u := useragent.Parse(userAgent)
@@ -301,10 +312,10 @@ func (s *Session) checkIp(newInfo IPInfo) bool {
 // CheckLogined 检查是否已经登录。
 // 从多个goroutine调用是安全的。
 // 如果err!=nil,调用者应该删除cookie（响应MaxAge<0）。
-func (c *Control) CheckLogined(clientIP, userAgent string, cookie *http.Cookie) (bool, error, Session) {
+func (c *Control) CheckLogined(clientIP, userAgent string, cookie *http.Cookie, p ...PostInfo) (bool, error, Session) {
 	ok, se := c.decodeSession(cookie.Value)
 	if ok && c.db.Exist(se.ID) {
-		ok, err := c.Check(clientIP, userAgent, PostInfo{}, &se)
+		ok, err := c.Check(clientIP, userAgent, &se, p...)
 		return ok, err, se
 	}
 	return false, nil, Session{}
