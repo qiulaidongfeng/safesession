@@ -35,6 +35,8 @@ type Control struct {
 	encrypt, decrypt func(string) string
 	// getIPInfo 获取IP信息。
 	getIPInfo func(clientIp string) IPInfo
+	// checkIPInfo 检查IP信息是否相差过大。
+	checkIPInfo func(old, new IPInfo) bool
 }
 
 // DB 包含需要的数据库操作。
@@ -105,7 +107,9 @@ type Screen struct {
 
 // NewControl 创建一个 [Control] 。
 // 数据库应自行实现清除过期的 [Session] ·。
-func NewControl(encrypt, decrypt func(string) string, sessionMaxAge time.Duration, sameSite http.SameSite, getIPInfo func(clientIp string) IPInfo, Db DB) *Control {
+func NewControl(encrypt, decrypt func(string) string, sessionMaxAge time.Duration, sameSite http.SameSite,
+	getIPInfo func(clientIp string) IPInfo, checkIPInfo func(old, new IPInfo) bool,
+	Db DB) *Control {
 	var c = new(Control)
 	c.encrypt, c.decrypt = encrypt, decrypt
 	if sameSite != 0 {
@@ -115,6 +119,7 @@ func NewControl(encrypt, decrypt func(string) string, sessionMaxAge time.Duratio
 	}
 	c.sessionMaxAge = sessionMaxAge
 	c.getIPInfo = getIPInfo
+	c.checkIPInfo = c.checkIPInfo
 	c.db = Db
 	return c
 }
@@ -123,14 +128,6 @@ func NewControl(encrypt, decrypt func(string) string, sessionMaxAge time.Duratio
 // 从多个goroutine调用是安全的。
 func (c *Control) NewSession(clientIP, userAgent, UserName string) Session {
 	s := c.newSession(clientIP, userAgent, UserName)
-	s.Gps.Latitude = math.MaxFloat64
-	s.Gps.Longitude = math.MaxFloat64
-	s.Ip.Latitude = math.MaxFloat64
-	s.Ip.Longitude = math.MaxFloat64
-	s.Ip.AS = -1
-	s.PNum = -1
-	s.Screen.Width = -1
-	s.Screen.Height = -1
 	for {
 		// 在ID不重复时返回。
 		if c.db.Store(s.ID, s.CreateTime) {
@@ -161,10 +158,14 @@ func (c *Control) newSession(clientIP, userAgent, UserName string) Session {
 		s.Ip = c.getIPInfo(clientIP)
 	}
 	u := useragent.Parse(userAgent)
-	s.Device = u.Device
 	s.Os = u.OS
 	s.OsVersion = u.OSVersion
 	s.Broswer = u.Name
+	s.Gps.Latitude = math.MaxFloat64
+	s.Gps.Longitude = math.MaxFloat64
+	s.PNum = -1
+	s.Screen.Width = -1
+	s.Screen.Height = -1
 	return s
 }
 
@@ -178,13 +179,20 @@ func (s *Session) encode() string {
 	return codec.Encode(s)
 }
 
+type PostInfo struct {
+	Gps    GpsInfo
+	Screen Screen
+	PNum   int
+	Device string
+}
+
 // SetPostInfo 设置应该由POST请求提供的验证信息
 // 注意int类型的字段，未能获取时应该设置为-1，float64则为 [math.MaxFloat64].
-func (s *Session) SetPostInfo(g GpsInfo, scr Screen, PNum int, Device string) {
-	s.PNum = PNum
-	s.Device = Device
-	s.Screen = scr
-	s.Gps = g
+func (s *Session) SetPostInfo(i PostInfo) {
+	s.PNum = i.PNum
+	s.Device = i.Device
+	s.Screen = i.Screen
+	s.Gps = i.Gps
 }
 
 var LoginExpired = errors.New("登录已过期，请重新登录")
@@ -193,29 +201,53 @@ var mayStolen = errors.New("登录疑似存在风险，请重新登录")
 
 // Check 检查用户的 [Session] 是否有效。
 // 从多个goroutine调用是安全的。
-func (c *Control) Check(clientIP, userAgent string, s *Session) (bool, error) {
+func (c *Control) Check(clientIP, userAgent string, p PostInfo, s *Session) (bool, error) {
 	// 有些浏览器会发送刚过期的cookie,
 	// 所以检查登录会话本身是否已经过期。
 	if time.Since(s.CreateTime) >= c.sessionMaxAge {
 		c.db.Delete(s.ID)
 		return false, LoginExpired
 	}
-	// 如果是测试或创建登录会话时没有获得ip属地，
-	// 就不要检查ip属地在创建登录会话和现在使用登录会话时是否一致。
-	if !Test && s.Ip.Country != "" {
-		userIp := c.getIPInfo(clientIP)
-		if userIp != s.Ip && userIp.Country != "" {
-			c.db.Delete(s.ID)
-			return false, RegionErr
-		}
-	}
-	// 检查设备信息，
-	// 在创建登录会话和现在使用登录会话时是否一致。
+	// 高灵敏度特征检查
 	u := useragent.Parse(userAgent)
-	if u.OS != s.Os || u.Device != s.Device || u.OSVersion != s.OsVersion || u.Name != s.Broswer {
+	if u.OS != s.Os || u.Name != s.Broswer {
 		c.db.Delete(s.ID)
 		return false, mayStolen
 	}
+
+	// 高特异性特征检查
+	device_ok := false
+	if s.Device != "" && s.Device == p.Device {
+		device_ok = true
+	}
+	fail := 0
+
+	// 如果是测试
+	// 就不要检查ip信息在创建登录会话和现在使用登录会话时是否一致。
+	if !Test && s.Ip.Country != "" {
+		userIp := c.getIPInfo(clientIP)
+		if c.checkIPInfo != nil {
+			if !c.checkIPInfo(s.Ip, userIp) {
+				fail++
+			}
+		} else {
+			if s.Ip.ISP != "" && s.Ip.ISP != userIp.ISP {
+				fail++
+			}
+			if s.Ip.AS != -1 && s.Ip.AS != userIp.AS {
+				fail++
+			}
+			if !s.checkIp(userIp) {
+				fail++
+			}
+		}
+	}
+
+	if !device_ok && fail > 1 {
+		c.db.Delete(s.ID)
+		return false, mayStolen
+	}
+
 	// 检查登录会话表示的用户登录状态。
 	// Note: 可能因为只允许在一台设备登录等原因，
 	// 即使有多个登录会话本身有效，但只有最近一个创建的登录会话能成功登录，
@@ -227,13 +259,30 @@ func (c *Control) Check(clientIP, userAgent string, s *Session) (bool, error) {
 	return true, nil
 }
 
+func (s *Session) checkIp(newInfo IPInfo) bool {
+	if s.Ip.Country != "" && s.Ip.Country != newInfo.Country {
+		return false
+	}
+	if s.Ip.AS != newInfo.AS {
+		return false
+	}
+	if s.Ip.Country != "" && s.Ip.Country != newInfo.Country {
+		return false
+	}
+	if s.Ip.Region != "" && s.Ip.Region != newInfo.Region {
+		return false
+	}
+	//TODO:handle 经纬度
+	return true
+}
+
 // CheckLogined 检查是否已经登录。
 // 从多个goroutine调用是安全的。
 // 如果err!=nil,调用者应该删除cookie（响应MaxAge<0）。
 func (c *Control) CheckLogined(clientIP, userAgent string, cookie *http.Cookie) (bool, error, Session) {
 	ok, se := c.decodeSession(cookie.Value)
 	if ok && c.db.Exist(se.ID) {
-		ok, err := c.Check(clientIP, userAgent, &se)
+		ok, err := c.Check(clientIP, userAgent, PostInfo{}, &se)
 		return ok, err, se
 	}
 	return false, nil, Session{}
