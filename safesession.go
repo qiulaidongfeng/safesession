@@ -39,8 +39,8 @@ type Control struct {
 	getIPInfo func(clientIp string) IPInfo
 	// CheckIPInfo 允许调用者覆盖默认检查IP信息是否相差过大逻辑。
 	CheckIPInfo func(old, new IPInfo) bool
-	// SessionCookieName 允许调用者设置写入响应的Cookie name
-	SessionCookieName func(s *Session) string
+	// CookieName 允许调用者设置写入响应的Cookie name
+	CookieName func(s *Session) string
 	// CheckCallBack 在被盗检查不通过时允许调用者进行二次验证
 	CheckCallBack func(s *Session, clientIP, userAgent string, p PostInfo) bool
 	//CookieDomain 覆盖默认响应cookie的domain
@@ -335,8 +335,8 @@ func (c *Control) CheckLogined(clientIP, userAgent string, cookie *http.Cookie, 
 // 只要每次调用的w不同，从多个goroutine调用是安全的。
 func (c *Control) SetSession(se *Session, w http.ResponseWriter) {
 	name := "session"
-	if c.SessionCookieName != nil {
-		name = c.SessionCookieName(se)
+	if c.CookieName != nil {
+		name = c.CookieName(se)
 	}
 	domain := ""
 	if c.CookieDomain != nil {
