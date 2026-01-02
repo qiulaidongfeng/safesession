@@ -298,6 +298,7 @@ func (c *Control) Check(clientIP, userAgent string, s *Session, ps ...PostInfo) 
 		c.db.Delete(s.ID)
 		return false, err
 	}
+	s.CreateTime = time.Now()
 	return true, nil
 }
 
