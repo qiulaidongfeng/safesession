@@ -18,7 +18,7 @@ import (
 	"unsafe"
 
 	"github.com/mileusna/useragent"
-	"github.com/qiulaidongfeng/safesession/codec"
+	"github.com/qiulaidongfeng/safesession/v3/codec"
 )
 
 // Test 为true将在创建 [Session] 时不获取ip属地。

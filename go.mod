@@ -1,4 +1,4 @@
-module github.com/qiulaidongfeng/safesession
+module github.com/qiulaidongfeng/safesession/v3
 
 go 1.24
 

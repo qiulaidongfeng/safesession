@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/qiulaidongfeng/safesession"
-	. "github.com/qiulaidongfeng/safesession/codec"
+	. "github.com/qiulaidongfeng/safesession/v3"
+	. "github.com/qiulaidongfeng/safesession/v3/codec"
 )
 
 func TestCodeSession(t *testing.T) {
