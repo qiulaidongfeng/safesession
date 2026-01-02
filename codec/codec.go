@@ -1,27 +1,27 @@
-// Package codec 实现编解码。
+// Package codec 实现结构体编解码。
 //
-// 只支持字符串和time.Time类型。
-package codec
-
-import (
-	"encoding/base64"
-	"fmt"
-	"reflect"
-	"strconv"
-	"strings"
-	"time"
-	"unsafe"
-)
-
 /*
 编码格式为
 
 value1 value2 ......
 
-time.Time 编码为它的GobEncode()结果
+time.Time 编码为它的RFC3399Nano结果
+
+int64和float64编码为字符串表示
+
+string直接写入
 
 考虑到被编码值可能包含空格，所以编码后的分隔从空格改为byte(0)
 */
+package codec
+
+import (
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+)
 
 const sep = string(sepb)
 const sepb = byte(0)
@@ -46,11 +46,8 @@ func encodeBuf(r reflect.Value, buf *strings.Builder) {
 			buf.WriteString(sep)
 		case reflect.Struct:
 			if r.Type().Field(i).Type == timetime {
-				b, err := f.Interface().(time.Time).GobEncode()
-				if err != nil {
-					panic(err)
-				}
-				buf.WriteString(base64.StdEncoding.EncodeToString(b))
+				b := f.Interface().(time.Time).Format(time.RFC3339Nano)
+				buf.WriteString(b)
 				buf.WriteString(sep)
 			} else {
 				encodeBuf(f, buf)
@@ -97,13 +94,7 @@ func decodeField(r reflect.Value, code string) string {
 	case reflect.Struct:
 		if r.Type() == timetime {
 			code, v = getValue(code)
-			t := time.Time{}
-			vb, err := base64.StdEncoding.DecodeString(v)
-			if err != nil {
-				panic(err)
-			}
-			v = unsafe.String(&vb[0], len(vb))
-			err = t.GobDecode(unsafe.Slice(unsafe.StringData(v), len(v)))
+			t, err := time.Parse(time.RFC3339Nano, v)
 			if err != nil {
 				panic(err)
 			}

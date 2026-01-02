@@ -21,6 +21,7 @@ func TestCodeSession(t *testing.T) {
 	result := Session{}
 	c := Encode(s)
 	t.Log(c)
+	t.Log(s.CreateTime.Format(time.RFC3339Nano))
 	Decode(&result, c)
 	if !reflect.DeepEqual(s, result) && !s.CreateTime.Equal(result.CreateTime) {
 		t.Fatalf("%+v != %+v", s, result)
