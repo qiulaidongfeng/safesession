@@ -1,6 +1,8 @@
 // Package safesession 实现安全登录会话。
 //
 // 这里的session表示保持登录的session。
+//
+// AES-256-GCM的加解密函数可以从https://github.com/qiulaidongfeng/key获取
 package safesession
 
 import (
