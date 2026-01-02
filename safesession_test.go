@@ -37,11 +37,21 @@ var c = func() *Control {
 	}
 	c := NewControl(func(s string) string { return s }, func(s string) string { return s }, 12*time.Hour, 0, func(clientIp string) IPInfo {
 		c := "CN"
+		as := int64(1)
 		if clientIp == "192.168.0.2" {
 			c = "US"
 		}
-		return IPInfo{Country: c}
+		if clientIp == "192.168.0.3" {
+			as = 10
+		}
+		return IPInfo{Country: c, AS: as}
 	}, db)
+	c.CheckIPInfo = func(old, new IPInfo) bool {
+		return new.AS == 10
+	}
+	c.CheckCallBack = func(s *Session, clientIP, userAgent string, p PostInfo) bool {
+		return clientIP == "192.168.0.4"
+	}
 	return c
 }()
 
@@ -49,6 +59,12 @@ var testErr = errors.New("test")
 var user_agent = "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.149 Mobile Safari/537.36"
 
 func TestAll(t *testing.T) {
+	original := c.CheckIPInfo
+	c.CheckIPInfo = nil
+	defer func() { c.CheckIPInfo = original }()
+	original2 := c.CheckCallBack
+	c.CheckCallBack = nil
+	defer func() { c.CheckCallBack = original2 }()
 	s := c.NewSession("192.168.0.1", user_agent, "ok")
 	if s.Ip.Country != "CN" {
 		t.Fatalf("got %s, want CN", s.Ip.Country)
@@ -113,4 +129,89 @@ func TestAll(t *testing.T) {
 		t.Log(delete_num)
 		t.Fatalf("Delete should be called three times")
 	}
+}
+
+func TestDevice(t *testing.T) {
+	t.Run("ip change", func(t *testing.T) {
+		s := c.NewSession("192.168.0.1", user_agent, "ok")
+		s.SetPostInfo(PostInfo{
+			Device: "1",
+		})
+		w := httptest.NewRecorder()
+		c.SetSession(&s, w)
+		cs := w.Result().Cookies()
+		if logined, _, _ := c.CheckLogined("192.168.0.2", user_agent, cs[0], PostInfo{Device: "1"}); !logined {
+			t.Fail()
+		}
+	})
+	t.Run("ip and Device change", func(t *testing.T) {
+		s := c.NewSession("192.168.0.1", user_agent, "ok")
+		s.SetPostInfo(PostInfo{
+			Device: "1",
+		})
+		w := httptest.NewRecorder()
+		c.SetSession(&s, w)
+		cs := w.Result().Cookies()
+		if logined, _, _ := c.CheckLogined("192.168.0.2", user_agent, cs[0], PostInfo{Device: "2"}); logined {
+			t.Fail()
+		}
+	})
+}
+
+func TestCheckIPInfo(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
+		s := c.NewSession("192.168.0.1", user_agent, "ok")
+		w := httptest.NewRecorder()
+		c.SetSession(&s, w)
+		cs := w.Result().Cookies()
+		if logined, _, _ := c.CheckLogined("192.168.0.3", user_agent, cs[0]); !logined {
+			t.Fail()
+		}
+	})
+	t.Run("no ok", func(t *testing.T) {
+		original := c.CheckIPInfo
+		c.CheckIPInfo = nil
+		defer func() { c.CheckIPInfo = original }()
+		s := c.NewSession("192.168.0.1", user_agent, "ok")
+		w := httptest.NewRecorder()
+		c.SetSession(&s, w)
+		cs := w.Result().Cookies()
+		if logined, _, _ := c.CheckLogined("192.168.0.3", user_agent, cs[0]); logined {
+			t.Fail()
+		}
+	})
+}
+
+func TestCheckCallBack(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
+		s := c.NewSession("192.168.0.1", user_agent, "ok")
+		s.SetPostInfo(PostInfo{
+			Device: "1",
+			PNum:   2,
+			Screen: Screen{Height: 1, Width: 2},
+		})
+		w := httptest.NewRecorder()
+		c.SetSession(&s, w)
+		cs := w.Result().Cookies()
+		if logined, _, _ := c.CheckLogined("192.168.0.4", "", cs[0], PostInfo{Device: "2", PNum: 3, Screen: Screen{Height: 1, Width: 2}}); !logined {
+			t.Fail()
+		}
+	})
+	t.Run("no ok", func(t *testing.T) {
+		original := c.CheckCallBack
+		c.CheckCallBack = nil
+		defer func() { c.CheckCallBack = original }()
+		s := c.NewSession("192.168.0.1", user_agent, "ok")
+		s.SetPostInfo(PostInfo{
+			Device: "1",
+			PNum:   2,
+			Screen: Screen{Height: 1, Width: 2},
+		})
+		w := httptest.NewRecorder()
+		c.SetSession(&s, w)
+		cs := w.Result().Cookies()
+		if logined, _, _ := c.CheckLogined("192.168.0.4", "", cs[0], PostInfo{Device: "2", PNum: 3, Screen: Screen{Height: 1, Width: 2}}); logined {
+			t.Fail()
+		}
+	})
 }

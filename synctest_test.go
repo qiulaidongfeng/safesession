@@ -10,6 +10,9 @@ import (
 
 func TestExpire(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
+		original := c.CheckIPInfo
+		c.CheckIPInfo = nil
+		defer func() { c.CheckIPInfo = original }()
 		s := c.NewSession("192.168.0.1", user_agent, "ok")
 		time.Sleep(12*time.Hour - time.Second)
 		synctest.Wait()
