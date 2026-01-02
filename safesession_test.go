@@ -37,14 +37,19 @@ var c = func() *Control {
 	}
 	c := NewControl(func(s string) string { return s }, func(s string) string { return s }, 12*time.Hour, 0, func(clientIp string) IPInfo {
 		c := "CN"
+		lat, lon := 0.0, 0.0
 		as := int64(1)
 		if clientIp == "192.168.0.2" {
 			c = "US"
+			lat = 0.1
 		}
 		if clientIp == "192.168.0.3" {
 			as = 10
 		}
-		return IPInfo{Country: c, AS: as}
+		if clientIp == "192.168.0.4" {
+			lat = 0.5
+		}
+		return IPInfo{Country: c, AS: as, Longitude: lon, Latitude: lat}
 	}, db)
 	c.CheckIPInfo = func(old, new IPInfo) bool {
 		return new.AS == 10
@@ -114,6 +119,9 @@ func TestAll(t *testing.T) {
 	if _, err := c.Check("192.168.0.2", user_agent, &s2); err != RegionErr {
 		t.Fatal(err)
 	}
+	if _, err := c.Check("192.168.0.4", user_agent, &s2); err != RegionErr {
+		t.Fatal(err)
+	}
 	if _, err := c.Check("192.168.0.1", "", &s2); err != MayStolen {
 		t.Fatal(err)
 	}
@@ -125,7 +133,7 @@ func TestAll(t *testing.T) {
 	if _, err := c.Check("192.168.0.1", user_agent, &s2); err != nil {
 		t.Fatal(err)
 	}
-	if delete_num != 3 {
+	if delete_num != 4 {
 		t.Log(delete_num)
 		t.Fatalf("Delete should be called three times")
 	}

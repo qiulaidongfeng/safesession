@@ -296,9 +296,6 @@ func (c *Control) Check(clientIP, userAgent string, s *Session, ps ...PostInfo) 
 }
 
 func (s *Session) checkIp(newInfo IPInfo, e *error) bool {
-	if s.Ip.AS != newInfo.AS {
-		return false
-	}
 	if s.Ip.Country != "" && s.Ip.Country != newInfo.Country {
 		*e = RegionErr
 		return false
@@ -307,7 +304,10 @@ func (s *Session) checkIp(newInfo IPInfo, e *error) bool {
 		*e = RegionErr
 		return false
 	}
-	//TODO:handle 经纬度
+	if Distance(s.Ip.Latitude, s.Ip.Longitude, newInfo.Latitude, newInfo.Longitude) > 50 {
+		*e = RegionErr
+		return false
+	}
 	return true
 }
 
@@ -369,4 +369,33 @@ func (c *Control) decodeSession(v string) (bool, Session) {
 	// 解码。
 	ok := se.decode(s)
 	return ok, se
+}
+
+const earthRadiusKm = 6371 // 地球半径，单位：公里
+
+// haversin calculates the haversine of an angle.
+func haversin(theta float64) float64 {
+	return math.Pow(math.Sin(theta/2), 2)
+}
+
+// 这个函数根据两点所在的纬度与经度（以十进制度为单位）来计算它们之间的距离，返回的结果以公里为单位。
+// 使用Haversine 公式
+func Distance(lat1, lon1, lat2, lon2 float64) float64 {
+	// 将角度从度数转换为弧度
+	lat1Rad := lat1 * math.Pi / 180
+	lon1Rad := lon1 * math.Pi / 180
+	lat2Rad := lat2 * math.Pi / 180
+	lon2Rad := lon2 * math.Pi / 180
+
+	// 计算纬度和经度的差值
+	dLat := lat2Rad - lat1Rad
+	dLon := lon2Rad - lon1Rad
+
+	// 应用 Haversine 公式
+	a := haversin(dLat) + math.Cos(lat1Rad)*math.Cos(lat2Rad)*haversin(dLon)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	// 计算距离
+	distance := earthRadiusKm * c
+	return distance
 }
