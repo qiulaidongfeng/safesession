@@ -43,6 +43,10 @@ type Control struct {
 	SessionCookieName func(s *Session) string
 	// CheckCallBack 在被盗检查不通过时允许调用者进行二次验证
 	CheckCallBack func(s *Session, clientIP, userAgent string, p PostInfo) bool
+	//CookieDomain 覆盖默认响应cookie的domain
+	CookieDomain func() string
+	//CookiePath 覆盖默认响应cookie的path
+	CookiePath func() string
 }
 
 // DB 包含需要的数据库操作。
@@ -333,10 +337,19 @@ func (c *Control) SetSession(se *Session, w http.ResponseWriter) {
 	if c.SessionCookieName != nil {
 		name = c.SessionCookieName(se)
 	}
+	domain := ""
+	if c.CookieDomain != nil {
+		domain = c.CookieDomain()
+	}
+	path := "/"
+	if c.CookiePath != nil {
+		path = c.CookiePath()
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
 		Value:    c.encodeSession(se),
-		Path:     "/",
+		Path:     path,
+		Domain:   domain,
 		SameSite: c.sameSite,
 		Secure:   true,
 		HttpOnly: true,
