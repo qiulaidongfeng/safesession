@@ -2,6 +2,8 @@
 //
 // 这里的session表示保持登录的session。
 //
+// 在Session的基础上，通过各种辅助验证，以及对加密的巧妙运用，做到了在安全维持登录会话的同时，自身仅存储少量数据，并且即使泄露登录会话凭据，也不太影响安全性。
+//
 // AES-256-GCM的加解密函数可以从https://github.com/qiulaidongfeng/key获取
 package safesession
 
@@ -65,6 +67,8 @@ type DB struct {
 }
 
 // Session 表示一个登录会话。
+//
+// 字符串字段不得包含"\x00"
 type Session struct {
 	// ID 对每个登录会话是唯一的。
 	ID string `gorm:"primaryKey;type:char(64)"`
