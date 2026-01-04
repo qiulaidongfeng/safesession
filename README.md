@@ -182,6 +182,9 @@ func main() {
 			// 实现会话存储逻辑
 			return true
 		},
+		Update: func(ID string, CreateTime time.Time) {
+			// 实现会话更新逻辑
+		},
 		Delete: func(ID string) {
 			// 实现会话删除逻辑
 		},
@@ -207,6 +210,8 @@ func main() {
 	control.CheckCallBack = func(s *safesession.Session, clientIP, userAgent string, p safesession.PostInfo) bool { return true }
 	// 可选：自己验证ip信息是否相差过大
 	control.CheckIPInfo = func(old, new safesession.IPInfo) bool { return true }
+	// 可选：自定义cookie name
+	control.CookieName = func(s *safesession.Session) string { return "username" }
 	// 可选：自定义cookie domain
 	control.CookieDomain = func() string { return "yourdomain.com" }
 	// 可选：自定义cookie path
