@@ -20,6 +20,9 @@ var c = func() *Control {
 			m[ID] = CreateTime
 			return true
 		},
+		Update: func(ID string, CreateTime time.Time) {
+			m[ID] = CreateTime
+		},
 		Delete: func(ID string) {
 			delete_num++
 			delete(m, ID)

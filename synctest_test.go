@@ -19,6 +19,10 @@ func TestExpire(t *testing.T) {
 		if _, err := c.Check("192.168.0.1", user_agent, &s); err != nil {
 			t.Fatal(err)
 		}
+		if s.CreateTime != time.Now() {
+			t.Fail()
+			return
+		}
 		time.Sleep(12 * time.Hour)
 		if _, err := c.Check("192.168.0.1", user_agent, &s); err != LoginExpired {
 			t.Fatal(err)

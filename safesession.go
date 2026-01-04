@@ -58,6 +58,8 @@ type DB struct {
 	// Store 存储验证 [Session] 本身有效的必要信息到数据库，
 	// 返回false表示ID重复。
 	Store func(ID string, CreateTime time.Time) bool
+	// Update 更新验证 [Session] 本身有效的必要信息到数据库。
+	Update func(ID string, CreateTime time.Time)
 	// Delete 从数据库删除 [Session] 。
 	Delete func(ID string)
 	// Exist 查询是否有指定的 [Session] 。
@@ -303,6 +305,7 @@ func (c *Control) Check(clientIP, userAgent string, s *Session, ps ...PostInfo) 
 		return false, err
 	}
 	s.CreateTime = time.Now()
+	c.db.Update(s.ID, s.CreateTime)
 	return true, nil
 }
 
